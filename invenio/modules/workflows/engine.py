@@ -20,6 +20,7 @@ from six.moves import cPickle
 from six import iteritems
 from uuid import uuid1 as new_uuid
 
+
 import base64
 
 from workflow.engine import (GenericWorkflowEngine,
@@ -375,6 +376,7 @@ BibWorkflowEngine
             obj.set_data(obj.data)
             obj.extra_data["_task_counter"] = self._i[1]
             obj.set_extra_data(obj.extra_data)
+
 
     def get_current_taskname(self):
         """

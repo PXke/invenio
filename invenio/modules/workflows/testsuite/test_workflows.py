@@ -94,6 +94,7 @@ distances from it.
                                                       BibWorkflowEngineLog,
                                                       BibWorkflowObjectLog)
         from invenio.ext.sqlalchemy import db
+
         workflows = Workflow.get(Workflow.module_name == "unit_tests").all()
         for workflow in workflows:
             BibWorkflowObject.query.filter(
@@ -135,13 +136,14 @@ distances from it.
         workflows['halttest'] = HaltTest
 
         data = [{'somekey', 'somevalue'}, ]
-        eng = start('halttest', data)
+        eng = start('halttest', data, module_name="unit_tests")
         idx, obj = list(eng.getObjects())[0]
 
-        assert obj.version == ObjectVersion.HALTED
-        assert eng.status == WorkflowStatus.HALTED
-        assert BibWorkflowObjectLog.get(
-            id_object=obj.id, log_type=logging.ERROR).count() == 0
+        self.assertEqual(obj.version, ObjectVersion.HALTED)
+        self.assertEqual(eng.status, WorkflowStatus.HALTED)
+        self.assertEqual(BibWorkflowObjectLog.get(
+            id_object=obj.id, log_type=logging.ERROR).count(), 0)
+
 
     def test_halt_in_branch(self):
         from workflow.patterns import IF_ELSE
@@ -150,6 +152,7 @@ distances from it.
         from invenio.modules.workflows.engine import WorkflowStatus
         from invenio.modules.workflows.models import (BibWorkflowObjectLog,
                                                       ObjectVersion)
+
         always_true = lambda obj, eng: True
         halt_engine = lambda obj, eng: eng.halt("Test")
 
@@ -161,7 +164,7 @@ distances from it.
         workflows['branchtest'] = BranchTest
 
         data = [{'somekey', 'somevalue'}, ]
-        eng = start('branchtest', data)
+        eng = start('branchtest', data, module_name="unit_tests")
         idx, obj = list(eng.getObjects())[0]
 
         assert obj.version == ObjectVersion.HALTED
@@ -504,11 +507,23 @@ test purpose, this object will log several things"""
         obj_running.set_data(1234)
         obj_running.save(version=ObjectVersion.RUNNING)
 
-        self.assertRaises(WorkflowObjectVersionError,
-                          start_by_oids,
-                          'test_workflow',
-                          [obj_running.id],
-                          module_name="unit_tests")
+        try:
+            engine = start_by_oids('test_workflow', [obj_running.id], module_name="unit_tests")
+        except Exception as e:
+            self.assertEqual(isinstance(e, WorkflowObjectVersionError), True)
+            obj_running.delete(e.id_object)
+        obj_running.delete(obj_running)
+        obj_running = BibWorkflowObject()
+        obj_running.set_data(1234)
+        obj_running.save(version=4L)
+        try:
+            engine = start_by_oids('test_workflow', [obj_running.id], module_name="unit_tests")
+        except Exception as e:
+            self.assertEqual(isinstance(e, WorkflowObjectVersionError), True)
+            obj_running.delete(e.id_object)
+        obj_running.delete(obj_running)
+
+
 
     def test_continue_execution_for_object(self):
         """
@@ -625,19 +640,55 @@ class TestWorkflowTasks(InvenioTestCase):
     Tests meant for testing the the generic tasks available.
     """
 
+    def tearDown(self):
+        """ Clean up created objects """
+        from invenio.modules.workflows.models import (BibWorkflowObject,
+                                                      Workflow,
+                                                      BibWorkflowEngineLog,
+                                                      BibWorkflowObjectLog)
+        from invenio.ext.sqlalchemy import db
+
+        workflows = Workflow.get(Workflow.module_name == "unit_tests").all()
+        for workflow in workflows:
+            BibWorkflowObject.query.filter(
+                BibWorkflowObject.id_workflow == workflow.uuid
+            ).delete()
+
+            objects = BibWorkflowObjectLog.query.filter(
+                BibWorkflowObject.id_workflow == workflow.uuid
+            ).all()
+            for obj in objects:
+                db.session.delete(obj)
+            db.session.delete(workflow)
+
+            objects = BibWorkflowObjectLog.query.filter(
+                BibWorkflowObject.id_workflow == workflow.uuid
+            ).all()
+            for obj in objects:
+                BibWorkflowObjectLog.delete(id=obj.id)
+            BibWorkflowEngineLog.delete(uuid=workflow.uuid)
+            # Deleting dumy object created in tests
+        db.session.query(BibWorkflowObject).filter(
+            BibWorkflowObject.id_workflow.in_([11, 123, 253])
+        ).delete(synchronize_session='fetch')
+        Workflow.query.filter(Workflow.module_name == "unit_tests").delete()
+        db.session.commit()
+
     def test_logic_tasks(self):
         """
         Tests that the logic tasks work correctly.
         """
         from invenio.modules.workflows.models import BibWorkflowObject
-        from invenio.modules.workflows.api import start, continue_oid
+        from invenio.modules.workflows.api import start, continue_oid, start_by_wid
 
         test_object = BibWorkflowObject()
         test_object.set_data(0)
         test_object.save()
+        workflow = start('test_workflow_logic', [test_object], module_name="unit_tests")
 
-        start('test_workflow_logic', [test_object])
-
+        self.assertEqual(test_object.get_data(), 5)
+        self.assertEqual(test_object.get_extra_data()["test"], "lt9")
+        start_by_wid(workflow.uuid)
         self.assertEqual(test_object.get_data(), 5)
         self.assertEqual(test_object.get_extra_data()["test"], "lt9")
         continue_oid(test_object.id,
@@ -655,8 +706,29 @@ class TestWorkflowTasks(InvenioTestCase):
 
         self.assertEqual(test_object.get_data(), 15)
         self.assertEqual(test_object.get_extra_data()["test"], "gte9")
-        continue_oid(test_object.id,
-                     start_point="continue_next")
+        engine = continue_oid(test_object.id,
+                              start_point="continue_next")
+
+        from invenio.modules.workflows.engine import WorkflowStatus
+
+        self.assertEqual(engine.status, WorkflowStatus.COMPLETED)
+
+    def test_workflow_without_workflow_object_saved(self):
+        """
+        Tests that the logic tasks work correctly.
+        """
+        from invenio.modules.workflows.models import BibWorkflowObject
+        from invenio.modules.workflows.api import start, continue_oid, start_by_wid
+
+        test_object = BibWorkflowObject()
+        test_object.set_data(0)
+
+        workflow = start('test_workflow_logic', [test_object], module_name="unit_tests")
+
+        self.assertEqual(test_object.get_data(), 5)
+        self.assertEqual(test_object.get_extra_data()["test"], "lt9")
+        start_by_wid(workflow.uuid)
+        test_object.delete(test_object.id)
 
 TEST_SUITE = make_test_suite(WorkflowViewTest,
                              WorkflowTasksTestAPI,

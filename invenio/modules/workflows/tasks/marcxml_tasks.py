@@ -108,12 +108,8 @@ def approve_record(obj, eng):
     :param obj: Bibworkflow Object to process
     :param eng: BibWorkflowEngine processing the object
     """
-    try:
-        eng.halt(widget="approval_widget",
-                 msg='Record needs approval')
-    except KeyError:
-        # Log the error
-        obj.extra_data["_error_msg"] = 'Could not assign widget'
+    eng.halt(widget="approval_widget",
+             msg='Record needs approval')
 
 
 approve_record.__title__ = "Record Approval"
@@ -404,6 +400,7 @@ def harvest_records(obj, eng):
     :param obj: Bibworkflow Object to process
     :param eng: BibWorkflowEngine processing the object
     """
+
     harvested_identifier_list = []
 
     harvestpath = "%s_%d_%s_" % ("%s/oaiharvest_%s" % (CFG_TMPSHAREDDIR, eng.uuid),
