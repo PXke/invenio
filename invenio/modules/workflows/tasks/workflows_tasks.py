@@ -30,6 +30,7 @@ from time import sleep
 def interrupt_workflow(obj, eng):
     eng.halt("interrupting workflow.")
 
+
 def get_nb_workflow_created(obj, eng):
     """
     :param obj: Bibworkflow Object to process

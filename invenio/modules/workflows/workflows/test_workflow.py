@@ -18,18 +18,15 @@
 
 """ Implements a workflow for testing """
 
-from invenio.modules.workflows.tasks.test_tasks import task_a, task_b
+from ..tasks.sample_tasks import (add_data,
+                                  halt_if_data_less_than,
+                                  reduce_data_by_one)
 
 
 class test_workflow(object):
     """
-    Test workflow for unit-tests.
+    A test workflow for the testsuite.
     """
-    workflow = [task_a(1),
-                task_b,
-                task_a(1),
-                task_a(4),
-                task_a(1),
-                task_a(1),
-                task_b,
-                task_a(13)]
+    workflow = [halt_if_data_less_than(20),
+                add_data(20),
+                reduce_data_by_one(2)]
