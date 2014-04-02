@@ -28,12 +28,13 @@ from invenio.legacy.bibupload.engine import (find_record_from_recid,
                                              find_record_from_sysno,
                                              find_records_from_extoaiid,
                                              find_record_from_oaiid,
-                                             find_record_from_doi
+                                             find_record_from_doi,
                                              )
 from invenio.legacy.oaiharvest.dblayer import update_lastrun, create_oaiharvest_log_str
 from invenio.base.config import (CFG_TMPSHAREDDIR,
                                  CFG_TMPDIR,
-                                 CFG_INSPIRE_SITE)
+                                 CFG_INSPIRE_SITE,
+                                 )
 from invenio.legacy.oaiharvest.utils import (record_extraction_from_file,
                                              collect_identifiers,
                                              harvest_step,
@@ -41,34 +42,34 @@ from invenio.legacy.oaiharvest.utils import (record_extraction_from_file,
                                              find_matching_files,
                                              )
 from invenio.legacy.bibsched.bibtask import (task_sleep_now_if_required,
-                                             task_low_level_submission
+                                             task_low_level_submission,
                                              )
 from invenio.modules.oaiharvester.models import OaiHARVEST
 from invenio.modules.records.api import Record, create_record
 from invenio.modules.workflows.errors import WorkflowError
 from invenio.legacy.refextract.api import extract_references_from_file_xml
 from invenio.legacy.bibrecord import (create_records,
-                                      record_xml_output
+                                      record_xml_output,
                                       )
 from invenio.utils.plotextractor.output_utils import (create_MARC,
                                                       create_contextfiles,
                                                       prepare_image_data,
-                                                      remove_dups
+                                                      remove_dups,
                                                       )
 from invenio.utils.plotextractor.getter import (harvest_single,
-                                                make_single_directory
+                                                make_single_directory,
                                                 )
 
 from invenio.utils.plotextractor.cli import (get_defaults,
                                              extract_captions,
-                                             extract_context
+                                             extract_context,
                                              )
 from invenio.utils.shell import (run_shell_command,
-                                 Timeout
+                                 Timeout,
                                  )
 import invenio.legacy.template
 from invenio.utils.plotextractor.converter import (untar,
-                                                   convert_images
+                                                   convert_images,
                                                    )
 
 
@@ -985,7 +986,6 @@ def author_list(obj, eng):
             obj.data['number_of_authors'] = new_dict_representation["number_of_authors"]
             obj.add_task_result("authors", new_dict_representation["authors"])
             obj.add_task_result("number_of_authors", new_dict_representation["number_of_authors"])
-
 
 author_list.__id__ = "u"
 

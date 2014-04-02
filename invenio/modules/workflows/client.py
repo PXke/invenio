@@ -99,19 +99,19 @@ def continue_execution(wfe, workflow_object, restart_point="restart_task",
     """
     Continue execution of workflow for one given object from "restart_point".
 
-    restart_point can be one of:
+    :param restart_point: can be one of:
 
     * restart_prev: will restart from the previous task
     * continue_next: will continue to the next task
     * restart_task: will restart the current task
+
+    :type restart_point: str
 
     You can use stop_on_error to raise exception's and stop the processing.
     Use stop_on_halt to stop processing the workflow
     if HaltProcessing is raised.
     """
     pos = workflow_object.get_current_task()
-    print str(pos)
-
     wfe._objects = [workflow_object]
 
     if restart_point == "restart_prev":

@@ -32,12 +32,18 @@ import re
 
 from six import iteritems, text_type
 
-from flask import (render_template, Blueprint,
-                   request, current_app,
-                   jsonify, url_for,
-                   flash)
+from flask import (render_template,
+                   Blueprint,
+                   request,
+                   current_app,
+                   jsonify,
+                   url_for,
+                   flash,
+                   )
 from flask.ext.login import login_required
-from flask.ext.breadcrumbs import default_breadcrumb_root, register_breadcrumb
+from flask.ext.breadcrumbs import (default_breadcrumb_root,
+                                   register_breadcrumb,
+                                   )
 from flask.ext.menu import register_menu
 
 from invenio.base.decorators import templated, wash_arguments
@@ -47,7 +53,8 @@ from invenio.utils.date import pretty_date
 from ..models import BibWorkflowObject, Workflow, ObjectVersion
 from ..loader import widgets
 from ..utils import (get_workflow_definition,
-                     sort_bwolist)
+                     sort_bwolist,
+                     )
 from ..api import continue_oid_delayed, start
 
 
@@ -534,7 +541,6 @@ def edit_record(form):
     Will call the edit record widget resolve function
     """
     for key in form.iterkeys():
-        # print '%s: %s' % (key, form[key])
         pass
 
 
