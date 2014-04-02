@@ -32,24 +32,22 @@ from invenio.ext.logging import register_exception
 from invenio.legacy.oaiharvest import getter
 
 from invenio.config import (CFG_ETCDIR, CFG_SITE_URL,
-                            CFG_SITE_ADMIN_EMAIL
+                            CFG_SITE_ADMIN_EMAIL,
                             )
 from invenio.legacy.bibrecord import (record_get_field_instances,
                                       record_modify_subfield,
-                                      field_xml_output
+                                      field_xml_output,
                                       )
 from invenio.utils.shell import run_shell_command
 from invenio.utils.text import translate_latex2unicode
 from invenio.legacy.oaiharvest.dblayer import create_oaiharvest_log_str
 from invenio.legacy.bibcatalog.api import bibcatalog_system
 from invenio.legacy.bibsched.bibtask import (write_message,
-                                             task_low_level_submission)
+                                             task_low_level_submission,
+                                             )
 
 ## precompile some often-used regexp for speed reasons:
 REGEXP_OAI_ID = re.compile("<identifier.*?>(.*?)<\/identifier>", re.DOTALL)
-REGEXP_REFS = re.compile("<record.*?>.*?<controlfield .*?>.*?</controlfield>(.*?)</record>", re.DOTALL)
-REGEXP_AUTHLIST = re.compile("<collaborationauthorlist.*?</collaborationauthorlist>", re.DOTALL)
-CFG_OAI_AUTHORLIST_POSTMODE_STYLESHEET = "%s/bibconvert/config/%s" % (CFG_ETCDIR, "authorlist2marcxml.xsl")
 
 
 def get_nb_records_in_file(filename):
@@ -136,17 +134,17 @@ def translate_fieldvalues_from_latex(record, tag, code='', encoding='utf-8'):
     translating the subfield values of found fields from LaTeX to chosen
     encoding for all the subfields with given code (or all if no code is given).
 
-    @param record: record to modify, in BibRec style structure
-    @type record: dict
+    :param record: record to modify, in BibRec style structure
+    :type record: dict
 
-    @param tag: tag of fields to modify
-    @type tag: string
+    :param tag: tag of fields to modify
+    :type tag: str
 
-    @param code: restrict the translation to a given subfield code
-    @type code: string
+    :param code: restrict the translation to a given subfield code
+    :type code: str
 
-    @param encoding: scharacter encoding for the new value. Defaults to UTF-8.
-    @type encoding: string
+    :param encoding: scharacter encoding for the new value. Defaults to UTF-8.
+    :type encoding: str
     """
     field_list = record_get_field_instances(record, tag)
     for field in field_list:
@@ -163,11 +161,12 @@ def translate_fieldvalues_from_latex(record, tag, code='', encoding='utf-8'):
 def compare_timestamps_with_tolerance(timestamp1,
                                       timestamp2,
                                       tolerance=0):
-    """Compare two timestamps TIMESTAMP1 and TIMESTAMP2, of the form
-       '2005-03-31 17:37:26'. Optionally receives a TOLERANCE argument
-       (in seconds).  Return -1 if TIMESTAMP1 is less than TIMESTAMP2
-       minus TOLERANCE, 0 if they are equal within TOLERANCE limit,
-       and 1 if TIMESTAMP1 is greater than TIMESTAMP2 plus TOLERANCE.
+    """
+    Compare two timestamps TIMESTAMP1 and TIMESTAMP2, of the form
+    '2005-03-31 17:37:26'. Optionally receives a TOLERANCE argument
+    (in seconds).  Return -1 if TIMESTAMP1 is less than TIMESTAMP2
+    minus TOLERANCE, 0 if they are equal within TOLERANCE limit,
+    and 1 if TIMESTAMP1 is greater than TIMESTAMP2 plus TOLERANCE.
     """
     # remove any trailing .00 in timestamps:
     timestamp1 = re.sub(r'\.[0-9]+$', '', timestamp1)
@@ -187,12 +186,20 @@ def compare_timestamps_with_tolerance(timestamp1,
 
 
 def generate_harvest_report(repository, harvested_identifier_list,
-                            uploaded_task_ids=[], active_files_list=[],
+                            uploaded_task_ids=(), active_files_list=(),
                             task_specific_name="", current_task_id=-1,
                             manual_harvest=False, error_happened=False):
     """
     Returns an applicable subject-line + text to send via e-mail or add to
     a ticket about the harvesting results.
+    :param repository:
+    :param harvested_identifier_list:
+    :param uploaded_task_ids:
+    :param active_files_list:
+    :param task_specific_name:
+    :param current_task_id:
+    :param manual_harvest:
+    :param error_happened:
     """
     # Post-harvest reporting
     current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -302,7 +309,8 @@ def record_extraction_from_file(path):
 
     #Will contains all the records
     list_of_records = []
-
+    temporary_record = ""
+    footer = ""
     #will contains the header of the file ie: all lines before the first record
     header = ""
     step = 0
@@ -373,12 +381,12 @@ def call_bibupload(marcxmlfile, mode=None, oai_src_id=-1, sequence_id=None):
     on given file. Returns the generated task id and logs the event
     in oaiHARVESTLOGS, also adding any given oai source identifier.
 
-    @param marcxmlfile: base-marcxmlfilename to upload
-    @param mode: mode to upload in
-    @param oai_src_id: id of current source config
-    @param sequence_id: sequence-number, if relevant
+    :param marcxmlfile: base-marcxmlfilename to upload
+    :param mode: mode to upload in
+    :param oai_src_id: id of current source config
+    :param sequence_id: sequence-number, if relevant
 
-    @return: task_id if successful, otherwise None.
+    :return: task_id if successful, otherwise None.
     """
     if mode is None:
         mode = ["-r", "-i"]
@@ -476,17 +484,17 @@ def create_authorlist_ticket(matching_fields, identifier, queue):
     This function will submit a ticket generated by UNDEFINED affiliations
     in extracted authors from collaboration authorlists.
 
-    @param matching_fields: list of (tag, field_instances) for UNDEFINED nodes
-    @type matching_fields: list
+    :param matching_fields: list of (tag, field_instances) for UNDEFINED nodes
+    :type matching_fields: list
 
-    @param identifier: OAI identifier of record
-    @type identifier: string
+    :param identifier: OAI identifier of record
+    :type identifier: str
 
-    @param queue: the RT queue to send a ticket to
-    @type queue: string
+    :param queue: the RT queue to send a ticket to
+    :type queue: str
 
-    @return: return the ID of the created ticket, or None on failure
-    @rtype: int or None
+    :return: return the ID of the created ticket, or None on failure
+    :rtype: int or None
     """
     subject = "[OAI Harvest] UNDEFINED affiliations for record %s" % (identifier,)
     text = """
@@ -511,17 +519,17 @@ def create_ticket(queue, subject, text=""):
     """
     This function will submit a ticket using the configured BibCatalog system.
 
-    @param queue: the ticketing queue to send a ticket to
-    @type queue: string
+    :param queue: the ticketing queue to send a ticket to
+    :type queue: str
 
-    @param subject: subject of the ticket
-    @type subject: string
+    ;param subject: subject of the ticket
+    :type subject: str
 
-    @param text: the main text or body of the ticket. Optional.
-    @type text: string
+    :param text: the main text or body of the ticket. Optional.
+    :type text: str
 
-    @return: return the ID of the created ticket, or None on failure
-    @rtype: int or None
+    :return: return the ID of the created ticket, or None on failure
+    :rtype: int or None
     """
     # Initialize BibCatalog connection as default user, if possible
     if bibcatalog_system is not None:
