@@ -32,6 +32,20 @@ def add_data(data_param):
     return _add_data
 
 
+def generate_error(obj, eng):
+    foo = 1
+    bar = foo + 1
+    call_a()
+
+def call_a():
+    call_b()
+
+def call_b():
+    call_c()
+
+def call_c():
+    raise ZeroDivisionError
+
 def halt_if_data_less_than(threshold):
     """ Static task with no parameters """
     def _halt_if_data_less_than(obj, eng):
@@ -111,9 +125,7 @@ def subtract(value):
 def task_reduce_and_halt(obj, eng):
     eng.log.info("value" + str(obj.data))
     if obj.data > 0:
-        eng.log.error(obj.data)
         obj.data -= 1
-        eng.log.error(obj.data)
         obj.save()
         eng.halt("test halt")
     else:

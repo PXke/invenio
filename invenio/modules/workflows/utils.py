@@ -282,3 +282,8 @@ def parse_bwids(bwolist):
     import ast
 
     return list(ast.literal_eval(bwolist))
+
+
+
+def generate_report_workflow():
+    o=0

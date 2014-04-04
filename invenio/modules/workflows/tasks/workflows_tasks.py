@@ -88,11 +88,10 @@ def num_workflow_running_greater(num):
 
 def get_nb_workflow_running(obj, eng):
     """
-    :param obj: Bibworkflow Object to process
+    :param obj: BibworkflowObject being process
     :param eng: BibWorkflowEngine processing the object
     """
     try:
-        eng.log.error(str())
         return eng.extra_data["_nb_workflow"] - eng.extra_data["_nb_workflow_finish"]
     except KeyError:
         return "0"
@@ -175,10 +174,10 @@ def wait_for_workflows_to_complete(obj, eng):
 def wait_for_a_workflow_to_complete_obj(obj, eng):
     """
     This function wait for the asynchronous workflow specified
-    in obj.data ( asyncresult )
+    in obj.data (asyncresult)
     It acts like a barrier
 
-    :param obj: Bibworkflow Object to process
+    :param obj: BibworkflowObject to process
     :param eng: BibWorkflowEngine processing the object
     """
     if not obj.data:
@@ -201,9 +200,9 @@ def wait_for_a_workflow_to_complete(scanning_time=0.5):
     def _wait_for_a_workflow_to_complete(obj, eng):
         """
         This function wait for the asynchronous workflow specified
-        in obj.data ( asyncresult )
+        in obj.data (asyncresult)
         It acts like a barrier
-        :param obj: Bibworkflow Object to process
+        :param obj: BibworkflowObject to process
         :param eng: BibWorkflowEngine processing the object
         """
         if '_workflow_ids' in eng.extra_data:
@@ -252,6 +251,8 @@ def workflow_result_management(async_result, eng):
         for log in workflowlog:
             eng.log.error(log.message)
 
+        for i in e.payload:
+            eng.log.error(str(i))
         eng.extra_data["_uuid_workflow_crashed"].append(e.id_workflow)
         eng.extra_data["_nb_workflow_failed"] += 1
         eng.extra_data["_nb_workflow_finish"] += 1

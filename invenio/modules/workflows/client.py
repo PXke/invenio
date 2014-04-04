@@ -17,9 +17,9 @@
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import traceback
-from .errors import (WorkflowHalt, WorkflowError)
-from .models import ObjectVersion
-from .engine import WorkflowStatus
+from invenio.modules.workflows.errors import (WorkflowHalt, WorkflowError)
+from invenio.modules.workflows.models import ObjectVersion
+from invenio.modules.workflows.engine import WorkflowStatus
 
 
 def run_workflow(wfe, data, stop_on_halt=False,
@@ -90,7 +90,7 @@ def run_workflow(wfe, data, stop_on_halt=False,
                 raise WorkflowError(message=msg,
                                     id_workflow=wfe.uuid,
                                     id_object=wfe.getCurrObjId(),
-                                    payload=[e])
+                                    )
 
 
 def continue_execution(wfe, workflow_object, restart_point="restart_task",
