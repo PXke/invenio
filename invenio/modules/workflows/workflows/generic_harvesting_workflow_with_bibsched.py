@@ -90,7 +90,7 @@ class generic_harvesting_workflow_with_bibsched(object):
                                 [task_update_progress, write_message]),
         simple_for(0, get_nb_workflow_created, 1),
         [
-            wait_for_a_workflow_to_complete,
+            wait_for_a_workflow_to_complete(0.5),
             write_something_generic([get_workflows_progress, " % Complete"],
                                     [task_update_progress, write_message]),
         ],

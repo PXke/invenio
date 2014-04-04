@@ -84,18 +84,17 @@ def run_workflow(wfe, data, stop_on_halt=False,
                                                   id_workflow=wfe.uuid)
             wfe.save(status=WorkflowStatus.ERROR)
             wfe.setPosition(wfe.getCurrObjId() + 1, [0, 0])
-            # if stop_on_halt or stop_on_error:
             if isinstance(e, WorkflowError):
                 raise e
             else:
                 raise WorkflowError(message=msg,
                                     id_workflow=wfe.uuid,
-                                    id_object=wfe.getCurrObjId())
+                                    id_object=wfe.getCurrObjId(),
+                                    payload=[e])
 
 
 def continue_execution(wfe, workflow_object, restart_point="restart_task",
-                       task_offset=1, stop_on_halt=False, stop_on_error=False,
-                       **kwargs):
+                       task_offset=1, stop_on_halt=False, **kwargs):
     """
     Continue execution of workflow for one given object from "restart_point".
 
@@ -103,7 +102,6 @@ def continue_execution(wfe, workflow_object, restart_point="restart_task",
 
     * restart_prev: will restart from the previous task
     * continue_next: will continue to the next task
-    * restart_task: will restart the current task
 
     :type restart_point: str
 

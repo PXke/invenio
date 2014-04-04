@@ -251,6 +251,7 @@ def workflow_result_management(async_result, eng):
 
         for log in workflowlog:
             eng.log.error(log.message)
+
         eng.extra_data["_uuid_workflow_crashed"].append(e.id_workflow)
         eng.extra_data["_nb_workflow_failed"] += 1
         eng.extra_data["_nb_workflow_finish"] += 1
