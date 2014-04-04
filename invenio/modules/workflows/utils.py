@@ -16,13 +16,51 @@
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from invenio.modules.workflows.models import Workflow
+
 import redis
 import traceback
 
 from six import iteritems
 
 from .errors import WorkflowDefinitionError
+from invenio.modules.workflows.engine import BibWorkflowEngine
+from invenio.modules.workflows.worker_result import uui_to_workflow
 
+
+# def generate_workflow_report(engine):
+#
+#     report = ""
+#
+#     if not isinstance(engine, BibWorkflowEngine) or isinstance(engine, Workflow):
+#             engine = uui_to_workflow(engine)
+#
+#     write_message("ERROR HAPPEN")
+#     write_message("____________Workflow log output____________")
+#     workflow_id_preservation = e.id_workflow
+#     workflowlog = BibWorkflowEngineLog.query.filter(BibWorkflowEngineLog.id_object == e.id_workflow) \
+#         .filter(BibWorkflowEngineLog.log_type >= 40).all()
+#
+#     for log in workflowlog:
+#         write_message(log.message)
+#
+#     for i in e.payload:
+#         write_message("\n\n____________Workflow " + i + " log output____________")
+#         workflowlog = BibWorkflowEngineLog.query.filter(BibWorkflowEngineLog.id_object == i) \
+#             .filter(BibWorkflowEngineLog.log_type >= 40).all()
+#         for log in workflowlog:
+#             write_message(log.message)
+#
+#     write_message("ERROR HAPPEN")
+#     write_message("____________Object log output____________")
+#     objectlog = BibWorkflowObjectLog.query.filter(BibWorkflowObjectLog.id_object == e.id_object) \
+#         .filter(BibWorkflowEngineLog.log_type >= 40).all()
+#     for log in objectlog:
+#         write_message(log.message)
+#     execution_time = round(time.time() - start_time, 2)
+#     write_message("Execution time :" + str(execution_time))
+#
+#
 
 def session_manager(orig_func):
     """Decorator to wrap function with the session."""
