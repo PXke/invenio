@@ -22,7 +22,7 @@ from invenio.modules.workflows.tasks.workflows_tasks import (start_workflow,
                                                              workflows_reviews,
                                                              wait_for_workflows_to_complete)
 
-from invenio.modules.workflows.tasks.logic_tasks import simple_for, end_for, workflow_if, workflow_else
+from invenio.modules.workflows.tasks.logic_tasks import simple_for, end_for
 
 
 class test_workflow_workflows_errors_B(object):
@@ -31,11 +31,11 @@ class test_workflow_workflows_errors_B(object):
     """
     workflow = [
 
-        simple_for(0, 20, 1, "X"),
+        simple_for(0, 5, 1, "X"),
         [
             start_workflow("test_workflow_error", 22),
         ],
         end_for,
         wait_for_workflows_to_complete,
-        workflows_reviews(False, False),
+        workflows_reviews(True, False),
     ]

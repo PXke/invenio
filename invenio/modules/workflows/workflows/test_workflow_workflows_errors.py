@@ -37,14 +37,14 @@ class test_workflow_workflows_errors(object):
     Test workflow for unit-tests.
     """
     workflow = [
-        simple_for(0, 20, 1, "X"),
+        simple_for(0, 5, 1, "X"),
         [
             start_workflow("test_workflow_error", 22),
             log_info(get_nb_workflow_created),
         ],
         end_for,
 
-        simple_for(0, 20, 1),
+        simple_for(0, 5, 1),
         [
             write_something_generic(["We are waiting for ", get_list_of_workflows_to_wait], [log_info]),
             wait_for_a_workflow_to_complete(0.1),

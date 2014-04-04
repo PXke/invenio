@@ -25,7 +25,7 @@ from invenio.modules.workflows.tasks.workflows_tasks import (start_workflow,
 from invenio.modules.workflows.tasks.logic_tasks import simple_for, end_for, workflow_if, workflow_else
 
 
-class test_workflow_workflows_errors_B(object):
+class test_workflow_workflows_errors_C(object):
     """
     Test workflow for unit-tests.
     """
@@ -33,9 +33,9 @@ class test_workflow_workflows_errors_B(object):
 
         simple_for(0, 5, 1, "X"),
         [
-            start_workflow("test_workflow_error_C", 22),
+            start_workflow("test_workflow_workflows_errors_B", 22),
         ],
         end_for,
         wait_for_workflows_to_complete,
-        workflows_reviews(False, False),
+        workflows_reviews(True, False),
     ]
