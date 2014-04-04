@@ -38,7 +38,7 @@ import urlparse
 from sqlalchemy import orm
 from invenio.config import (CFG_OAI_FAILED_HARVESTING_STOP_QUEUE,
                             CFG_OAI_FAILED_HARVESTING_EMAILS_ADMIN,
-                            CFG_SITE_SUPPORT_EMAIL
+                            CFG_SITE_SUPPORT_EMAIL,
                             )
 
 from invenio.modules.oaiharvester.models import OaiHARVEST
@@ -47,7 +47,7 @@ from invenio.legacy.bibsched.bibtask import (task_get_task_param,
                                              task_get_option,
                                              task_set_option,
                                              write_message,
-                                             task_init
+                                             task_init,
                                              )
 
 from invenio.legacy.oaiharvest.config import InvenioOAIHarvestWarning
@@ -58,14 +58,16 @@ from invenio.ext.logging import register_exception
 from invenio.base.factory import with_app_context
 
 from invenio.legacy.oaiharvest.utils import (compare_timestamps_with_tolerance,
-                                             generate_harvest_report, create_ticket
+                                             generate_harvest_report,
+                                             create_ticket,
                                              )
 
 from invenio.legacy.webuser import email_valid_p
 from invenio.ext.email import send_email
 
 from invenio.modules.workflows.models import (BibWorkflowEngineLog,
-                                              BibWorkflowObjectLog
+                                              BibWorkflowObjectLog,
+                                              Workflow,
                                               )
 
 from invenio.modules.workflows.api import start
@@ -76,11 +78,19 @@ oaiharvest_templates = invenio.legacy.template.load('oaiharvest')
 
 
 def task_run_core():
+    """
+
+
+    :return: :raise InvenioOAIHarvestWarning:
+    """
+
+    workflow_id_preservation = 0
+    workflow = None
     start_time = time.time()
     list_of_workflow_without_repository = []
     list_of_repository_per_workflow = {}
+
     repository = task_get_option("repository")
-    error_happened_p = False
     if not repository:
         workflow_option = task_get_option("workflow")
 
@@ -123,20 +133,19 @@ def task_run_core():
         else:
             for workflow_to_launch in list_of_workflow_without_repository:
                 workflow = start(workflow_to_launch, data=[""], stop_on_error=True, options=task_get_option(None))
-
-        workflowlog = BibWorkflowEngineLog.query.filter(BibWorkflowEngineLog.id_object == workflow.uuid).all()
-
-        for log in workflowlog:
-            write_message(log.message)
+        if workflow:
+            workflow_id_preservation = workflow.uuid
+            workflowlog = BibWorkflowEngineLog.query.filter(BibWorkflowEngineLog.id_object == workflow.uuid).all()
+            for log in workflowlog:
+                write_message(log.message)
         execution_time = round(time.time() - start_time, 2)
         write_message("Execution time :" + str(execution_time))
     except WorkflowError as e:
-        error_happened_p = True
         write_message("ERROR HAPPEN")
         write_message("____________Workflow log output____________")
-
+        workflow_id_preservation = e.id_workflow
         workflowlog = BibWorkflowEngineLog.query.filter(BibWorkflowEngineLog.id_object == e.id_workflow) \
-            .filter(BibWorkflowEngineLog.log_type == 40).all()
+            .filter(BibWorkflowEngineLog.log_type > 40).all()
 
         for log in workflowlog:
             write_message(log.message)
@@ -144,15 +153,14 @@ def task_run_core():
         for i in e.payload:
             write_message("\n\n____________Workflow " + i + " log output____________")
             workflowlog = BibWorkflowEngineLog.query.filter(BibWorkflowEngineLog.id_object == i) \
-                .filter(BibWorkflowEngineLog.log_type == 40).all()
+                .filter(BibWorkflowEngineLog.log_type > 40).all()
             for log in workflowlog:
                 write_message(log.message)
 
         write_message("ERROR HAPPEN")
         write_message("____________Object log output____________")
         objectlog = BibWorkflowObjectLog.query.filter(BibWorkflowObjectLog.id_object == e.id_object) \
-            .filter(BibWorkflowEngineLog.log_type == 40).all()
-
+            .filter(BibWorkflowEngineLog.log_type > 40).all()
         for log in objectlog:
             write_message(log.message)
         execution_time = round(time.time() - start_time, 2)
@@ -162,16 +170,13 @@ def task_run_core():
     # Generate reports
     ticket_queue = task_get_option("create-ticket-in")
     notification_email = task_get_option("notify-email-to")
+    workflow_main = Workflow.query.filter(Workflow.uuid == workflow_id_preservation).one()
 
     if ticket_queue or notification_email:
-        subject, text = generate_harvest_report(repository,
-                                                harvested_identifier_list,
-                                                uploaded_task_ids,
-                                                active_files_list,
-                                                task_specific_name=task_get_task_param("task_specific_name") or "",
-                                                current_task_id=task_get_task_param("task_id"),
-                                                manual_harvest=bool(identifiers),
-                                                error_happened=bool(error_happened_p))
+
+        subject, text = generate_harvest_report(workflow_main,
+                                                current_task_id=task_get_task_param("task_id")
+                                                )
         # Create ticket for finished harvest?
         if ticket_queue:
             ticketid = create_ticket(ticket_queue, subject=subject, text=text)
@@ -186,8 +191,9 @@ def task_run_core():
                        content=text)
             # All records from all repositories harvested. Check for any errors.
 
-    if error_happened_p:
-        if CFG_OAI_FAILED_HARVESTING_STOP_QUEUE == 0 or not task_get_task_param("sleeptime") or error_happened_p > 1:
+    if workflow_main.counter_error:
+        if CFG_OAI_FAILED_HARVESTING_STOP_QUEUE == 0 or not task_get_task_param(
+                "sleeptime") or workflow_main.counter_error > 1:
             # Admin want BibSched to stop, or the task is not set to
             # run at a later date: we must stop the queue.
             write_message("An error occurred. Task is configured to stop")
@@ -200,11 +206,9 @@ def task_run_core():
             if CFG_OAI_FAILED_HARVESTING_EMAILS_ADMIN:
                 try:
 
-                    raise InvenioOAIHarvestWarning("OAIHarvest (task #%s) failed at fully harvesting source(s) %s."
+                    raise InvenioOAIHarvestWarning("OAIHarvest (task #%s) failed at fully harvesting."
                                                    " BibSched has NOT been stopped, and OAIHarvest will try to rec"
-                                                   "over at next run" % (task_get_task_param("task_id"),
-                                                                         ", ".join([repo[0][6] for repo
-                                                                                    in reposlist]),))
+                                                   "over at next run" % (task_get_task_param("task_id"),))
                 except InvenioOAIHarvestWarning:
                     register_exception(stream='warning', alert_admin=True)
             return True
@@ -214,6 +218,7 @@ def task_run_core():
 
 def get_dates(dates):
     """ A method to validate and process the dates input by the user
+    :param dates:
         at the command line """
     twodates = []
     if dates:
@@ -292,7 +297,10 @@ def get_identifier_names(identifier):
 
 
 def usage(exitcode=0, msg=""):
-    """Print out info. Only used when run in 'manual' harvesting mode"""
+    """Print out info. Only used when run in 'manual' harvesting mode
+    :param msg:
+    :param exitcode:
+    """
     sys.stderr.write("*Manual single-shot harvesting mode*\n")
     if msg:
         sys.stderr.write(msg + "\n")

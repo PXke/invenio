@@ -46,6 +46,9 @@ from invenio.legacy.bibsched.bibtask import (write_message,
                                              task_low_level_submission,
                                              )
 
+from invenio.legacy.bibsched.bibtask import write_message, task_low_level_submission
+from invenio.modules.workflows.models import BibWorkflowEngineLog
+
 ## precompile some often-used regexp for speed reasons:
 REGEXP_OAI_ID = re.compile("<identifier.*?>(.*?)<\/identifier>", re.DOTALL)
 
@@ -54,6 +57,7 @@ def get_nb_records_in_file(filename):
     """
     Return number of record in FILENAME that is either harvested or converted
     file. Useful for statistics.
+    :param filename:
     """
     try:
         nb = open(filename, 'r').read().count("</record>")
@@ -66,6 +70,7 @@ def get_nb_records_in_string(string):
     """
     Return number of record in FILENAME that is either harvested or converted
     file. Useful for statistics.
+    :param string:
     """
     nb = string.count("</record>")
     return nb
@@ -74,7 +79,9 @@ def get_nb_records_in_string(string):
 def create_oaiharvest_log(task_id, oai_src_id, marcxmlfile):
     """
     Function which creates the harvesting logs
-    @param task_id bibupload task id
+    :param task_id: bibupload task id
+    :param oai_src_id:
+    :param marcxmlfile:
     """
     file_fd = open(marcxmlfile, "r")
     xml_content = file_fd.read(-1)
@@ -86,9 +93,9 @@ def collect_identifiers(harvested_file_list):
     """Collects all OAI PMH identifiers from each file in the list
     and adds them to a list of identifiers per file.
 
-    @param harvested_file_list: list of filepaths to harvested files
+    :param harvested_file_list: list of filepaths to harvested files
 
-    @return list of lists, containing each files' identifier list"""
+    :return list of lists, containing each files' identifier list"""
     result = []
     for harvested_file in harvested_file_list:
         try:
@@ -106,14 +113,14 @@ def find_matching_files(basedir, filetypes):
     This functions tries to find all files matching given filetypes by looking at
     all the files and filenames in the given directory, including subdirectories.
 
-    @param basedir: full path to base directory to search in
-    @type basedir: string
+    :param basedir: full path to base directory to search in
+    :type basedir: string
 
-    @param filetypes: list of filetypes, extensions
-    @type filetypes: list
+    :param filetypes: list of filetypes, extensions
+    :type filetypes: list
 
-    @return: exitcode and any error messages as: (exitcode, err_msg)
-    @rtype: tuple
+    :return: exitcode and any error messages as: (exitcode, err_msg)
+    :rtype: tuple
     """
     files_list = []
     for dirpath, dummy0, filenames in os.walk(basedir):
@@ -145,6 +152,7 @@ def translate_fieldvalues_from_latex(record, tag, code='', encoding='utf-8'):
 
     :param encoding: scharacter encoding for the new value. Defaults to UTF-8.
     :type encoding: str
+
     """
     field_list = record_get_field_instances(record, tag)
     for field in field_list:
@@ -163,10 +171,14 @@ def compare_timestamps_with_tolerance(timestamp1,
                                       tolerance=0):
     """
     Compare two timestamps TIMESTAMP1 and TIMESTAMP2, of the form
-    '2005-03-31 17:37:26'. Optionally receives a TOLERANCE argument
-    (in seconds).  Return -1 if TIMESTAMP1 is less than TIMESTAMP2
-    minus TOLERANCE, 0 if they are equal within TOLERANCE limit,
-    and 1 if TIMESTAMP1 is greater than TIMESTAMP2 plus TOLERANCE.
+       '2005-03-31 17:37:26'. Optionally receives a TOLERANCE argument
+       (in seconds).  Return -1 if TIMESTAMP1 is less than TIMESTAMP2
+       minus TOLERANCE, 0 if they are equal within TOLERANCE limit,
+       and 1 if TIMESTAMP1 is greater than TIMESTAMP2 plus TOLERANCE.
+
+        :param timestamp1:
+        :param timestamp2:
+        :param tolerance:
     """
     # remove any trailing .00 in timestamps:
     timestamp1 = re.sub(r'\.[0-9]+$', '', timestamp1)
@@ -185,119 +197,107 @@ def compare_timestamps_with_tolerance(timestamp1,
         return 0
 
 
-def generate_harvest_report(repository, harvested_identifier_list,
-                            uploaded_task_ids=(), active_files_list=(),
-                            task_specific_name="", current_task_id=-1,
-                            manual_harvest=False, error_happened=False):
+def generate_harvest_report(workflow, current_task_id=-1):
     """
     Returns an applicable subject-line + text to send via e-mail or add to
     a ticket about the harvesting results.
-    :param repository:
-    :param harvested_identifier_list:
-    :param uploaded_task_ids:
-    :param active_files_list:
-    :param task_specific_name:
+
+    :param workflow:
     :param current_task_id:
     :param manual_harvest:
     :param error_happened:
     """
-    # Post-harvest reporting
-    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    if task_specific_name:
-        fullname = repository.name + task_specific_name
-    else:
-        fullname = repository.name
+    from invenio.modules.oaiharvester.models import OaiHARVEST
 
-    if manual_harvest:
-        # One-shot manual harvest
-        harvesting_prefix = "Manual harvest"
+    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    extra_data_workflow = workflow.get_extra_data()
+    list_source = ""
+    if "task_specific_name" in extra_data_workflow["options"]:
+        fullname = str(extra_data_workflow["options"]["repository"]) + extra_data_workflow["options"][
+            "task_specific_name"]
     else:
-        # Automatic
+        fullname = str(extra_data_workflow["options"]["repository"])
+    try:
+        for i in extra_data_workflow["options"]["repository"]:
+            repository = OaiHARVEST.query.filter(OaiHARVEST.name == i).one()
+            list_source += "\n" + str(repository.id) + "  " + str(repository.baseurl)
+    except:
+        list_source = "No information"
+
+    try:
+
+        if extra_data_workflow["options"]["identifiers"]:
+            # One-shot manual harvest
+            harvesting_prefix = "Manual harvest"
+        else:
+            # Automatic
+            harvesting_prefix = "Periodical harvesting"
+    except KeyError:
         harvesting_prefix = "Periodical harvesting"
 
     subject = "%s of '%s' finished %s" % (harvesting_prefix, fullname, current_time)
-    if error_happened:
+
+    if workflow.counter_error:
         subject += " with errors"
-        text = \
+
+    text = \
+        """
+The %(harvesting)s completed with %(number_errors)d errors at %(ctime)s.
+
+Please forward this mail to administrators. <%(admin_mail)s>
+
+Repositories which have been harvested are :
+id   base url:
+%(list_source)s
+""" \
+        % {
+            'ctime': current_time,
+            'admin_mail': CFG_SITE_ADMIN_EMAIL,
+            'harvesting': harvesting_prefix,
+            'number_errors': workflow.counter_error,
+            'list_source': list_source,
+        }
+
+    try:
+
+        text += \
             """
-            %(harvesting)s completed *with errors* from source named '%(name)s' (%(sourceurl)s) at %(ctime)s.
-            In total %(total)d record(s) were harvested.
 
-            See harvest task log here for more information on the problems:
-            %(harvesttasklink)s
-
-            Please forward this mail to administrators. <%(admin_mail)s>
-
-            ----------
-            Extra Info
-            ----------
-
-            Harvest history for this source:
-            %(siteurl)s/admin/oaiharvest/oaiharvestadmin.py/viewhistory?ln=no&oai_src_id=%(oai_src_id)s
-
-            See state of uploaded records:
-            %(uploadtasklinks)s
-
-            List of OAI IDs harvested:
-            %(ids)s
-
-            Records ready to upload are located here:
-            %(files)s
-            """ \
+List of OAI IDs harvested:
+%(identifiers)s
+""" \
             % {
-                'harvesting': harvesting_prefix,
-                'admin_mail': CFG_SITE_ADMIN_EMAIL,
-                'name': fullname,
-                'sourceurl': repository.baseurl,
-                'ctime': current_time,
-                'total': sum([len(ids) for ids in harvested_identifier_list]),
-                'files': '\n'.join(active_files_list),
-                'ids': '\n'.join([oaiid for ids in harvested_identifier_list for oaiid in ids]),
-                'siteurl': CFG_SITE_URL,
-                'oai_src_id': repository.id,
-                'harvesttasklink': "%s/admin/oaiharvest/oaiharvestadmin.py/viewtasklogs?ln=no&task_id=%s"
-                                   % (CFG_SITE_URL, current_task_id),
-                'uploadtasklinks': '\n'.join(["%s/admin/oaiharvest/oaiharvestadmin.py/viewtasklogs?ln=no&task_id=%s"
-                                              % (CFG_SITE_URL, task_id) for task_id in uploaded_task_ids]) or "None",
+                'identifiers': str(extra_data_workflow["options"]["identifiers"])
             }
-    else:
-        text = \
+    except KeyError:
+
+        text += \
             """
-            %(harvesting)s completed successfully from source named '%(name)s' (%(sourceurl)s) at %(ctime)s.
-            In total %(total)d record(s) were harvested.
 
-            See harvest history here:
-            %(siteurl)s/admin/oaiharvest/oaiharvestadmin.py/viewhistory?ln=no&oai_src_id=%(oai_src_id)s
+No identifiers specified.
+"""
 
-            See state of uploaded records:
-            %(uploadtasklinks)s
+    workflowlog = BibWorkflowEngineLog.query.filter(BibWorkflowEngineLog.id_object == workflow.uuid).filter(
+        BibWorkflowEngineLog.log_type > 10).all()
+    logs = ""
+    for log in workflowlog:
+        logs += str(log) + '\n'
+    text += \
+        """
+Logs :
 
-            List of OAI IDs harvested:
-            %(ids)s
+%(logs)s
+""" \
+        % {
+            'logs': logs
+        }
 
-            Records ready to upload are located here:
-            %(files)s
-            """ \
-            % {
-                'harvesting': harvesting_prefix,
-                'name': fullname,
-                'sourceurl': repository['baseurl'],
-                'ctime': current_time,
-                'total': sum([len(ids) for ids in harvested_identifier_list]),
-                'files': '\n'.join(active_files_list),
-                'ids': '\n'.join([oaiid for ids in harvested_identifier_list for oaiid in ids]),
-                'siteurl': CFG_SITE_URL,
-                'oai_src_id': repository['id'],
-                'uploadtasklinks': '\n'.join(["%s/admin/oaiharvest/oaiharvestadmin.py/viewtasklogs?ln=no&task_id=%s" \
-                                              % (CFG_SITE_URL, task_id) for task_id in uploaded_task_ids]) or "None", \
-                }
-        if not manual_harvest:
-            text += "Categories harvested from: \n%s\n" % (repository.setspecs or "None",)
     return subject, text
 
 
 def record_extraction_from_file(path):
     """
+<<<<<<< HEAD
     Get an harvested file, and transform each record as if
     it was another independent harvested document.
 
@@ -305,6 +305,14 @@ def record_extraction_from_file(path):
     @return: return a table of records encapsulated with markup of the document
              designated by path given
     @attention: this function is much FASTER (3-5 TIMES) than using regex.
+=======
+    get an harvested file, and transform each record as if it was another independant
+    harvested document.
+    :param path: is the path of the file harvested
+    :return : return a table of records encapsulated with markup of the document
+    designed by path
+    *this function much FASTER (3-5 TIMES) than using regex.*
+>>>>>>> 74ac931... oaiharvest: reliability improvement and sphinx docs
     """
 
     #Will contains all the records
@@ -348,6 +356,8 @@ def harvest_step(obj, harvestpath):
     """
     Performs the entire harvesting step.
     Returns a tuple of (file_list, error_code)
+    :param obj:
+    :param harvestpath:
     """
     if obj.extra_data["options"]["identifiers"]:
         # Harvesting is done per identifier instead of server-updates
@@ -364,6 +374,8 @@ def harvest_by_identifiers(obj, harvestpath):
     of records in the repository perform a OAI harvest using GetRecord for each.
 
     The records will be harvested into the specified filepath.
+    :param obj:
+    :param harvestpath:
     """
     harvested_files_list = []
     for oai_identifier in obj.extra_data["options"]["identifiers"]:
@@ -381,11 +393,20 @@ def call_bibupload(marcxmlfile, mode=None, oai_src_id=-1, sequence_id=None):
     on given file. Returns the generated task id and logs the event
     in oaiHARVESTLOGS, also adding any given oai source identifier.
 
+<<<<<<< HEAD
     :param marcxmlfile: base-marcxmlfilename to upload
     :param mode: mode to upload in
     :param oai_src_id: id of current source config
     :param sequence_id: sequence-number, if relevant
 
+=======
+
+    :param marcxmlfile: base-marcxmlfilename to upload
+    :param mode: mode to upload in
+    :param oai_src_id: id of current source config
+    :param sequence_id: sequence-number, if relevant
+
+>>>>>>> e8142d5... oaiharvest: reliability improvement and sphinx docs
     :return: task_id if successful, otherwise None.
     """
     if mode is None:
@@ -423,6 +444,8 @@ def harvest_by_dates(obj, harvestpath):
     will be harvested since last time (most common type).
 
     The records will be harvested into the specified filepath.
+    :param obj:
+    :param harvestpath:
     """
     if obj.extra_data["options"]["dates"]:
         fromdate = str(obj.extra_data["options"]["dates"][0])
@@ -451,6 +474,19 @@ def oai_harvest_get(prefix, baseurl, harvestpath,
                     identifier=""):
     """
     Retrieve OAI records from given repository, with given arguments
+    :param prefix:
+    :param baseurl:
+    :param harvestpath:
+    :param fro:
+    :param until:
+    :param setspecs:
+    :param user:
+    :param password:
+    :param cert_file:
+    :param key_file:
+    :param method:
+    :param verb:
+    :param identifier:
     """
     try:
         (addressing_scheme, network_location, path, dummy1,
@@ -488,10 +524,17 @@ def create_authorlist_ticket(matching_fields, identifier, queue):
     :type matching_fields: list
 
     :param identifier: OAI identifier of record
+<<<<<<< HEAD
     :type identifier: str
 
     :param queue: the RT queue to send a ticket to
     :type queue: str
+=======
+    :type identifier: string
+
+    :param queue: the RT queue to send a ticket to
+    :type queue: string
+>>>>>>> e8142d5... oaiharvest: reliability improvement and sphinx docs
 
     :return: return the ID of the created ticket, or None on failure
     :rtype: int or None
@@ -520,6 +563,7 @@ def create_ticket(queue, subject, text=""):
     This function will submit a ticket using the configured BibCatalog system.
 
     :param queue: the ticketing queue to send a ticket to
+<<<<<<< HEAD
     :type queue: str
 
     ;param subject: subject of the ticket
@@ -527,6 +571,15 @@ def create_ticket(queue, subject, text=""):
 
     :param text: the main text or body of the ticket. Optional.
     :type text: str
+=======
+    :type queue: string
+
+    :param subject: subject of the ticket
+    :type subject: string
+
+    :param text: the main text or body of the ticket. Optional.
+    :type text: string
+>>>>>>> e8142d5... oaiharvest: reliability improvement and sphinx docs
 
     :return: return the ID of the created ticket, or None on failure
     :rtype: int or None
