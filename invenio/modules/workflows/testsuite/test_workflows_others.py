@@ -53,12 +53,22 @@ class WorkflowOthers(InvenioTestCase):
             start("@thisisnotatrueworkflow@", ["my_false_data"], random_kay_args="value")
         except Exception as e:
             self.assertEqual(isinstance(e, WorkflowDefinitionError), True)
-            return
-        self.assertEqual(False, True)
+
+    def test_workflows_exceptions(self):
+        from invenio.modules.workflows.errors import WorkflowError
+        from invenio.modules.workflows.api import start
+
+        try:
+            start("test_workflow_error", [2])
+        except Exception as e:
+            self.assertEqual(isinstance(e, WorkflowError), True)
+            self.assertEqual("ZeroDivisionError" in e.message, True)
+            self.assertEqual("call_a()" in e.message, True)
+            self.assertEqual("call_b()" in e.message, True)
+            self.assertEqual("call_c()" in e.message, True)
 
 
-TEST_SUITE = make_test_suite(WorkflowOthers,
-                             )
+TEST_SUITE = make_test_suite(WorkflowOthers)
 
 if __name__ == "__main__":
     run_test_suite(TEST_SUITE)

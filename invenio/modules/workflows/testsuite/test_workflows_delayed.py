@@ -122,8 +122,7 @@ class WorkflowDelayedTest(InvenioTestCase):
         engine = uui_to_workflow(celery_continue(test_object.id, "continue_next", module_name="unit_tests"))
         from invenio.modules.workflows.engine import WorkflowStatus
 
-        while engine.status != WorkflowStatus.COMPLETED:
-            engine = uui_to_workflow(celery_continue(test_object.id, "continue_next"))
+
         self.assertEqual(engine.status, WorkflowStatus.COMPLETED)
 
     def test_workflows_tasks(self):

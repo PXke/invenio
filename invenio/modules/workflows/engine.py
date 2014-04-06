@@ -397,7 +397,6 @@ BibWorkflowEngine
             obj.extra_data["_task_counter"] = self._i[1]
             obj.set_extra_data(obj.extra_data)
 
-
     def get_current_taskname(self):
         """
         Will attempt to return name of current task/step.

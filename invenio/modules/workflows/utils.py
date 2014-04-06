@@ -16,16 +16,12 @@
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from invenio.modules.workflows.models import Workflow
-
 import redis
 import traceback
 
 from six import iteritems
 
 from .errors import WorkflowDefinitionError
-from invenio.modules.workflows.engine import BibWorkflowEngine
-from invenio.modules.workflows.worker_result import uui_to_workflow
 
 
 # def generate_workflow_report(engine):

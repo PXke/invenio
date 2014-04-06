@@ -17,7 +17,9 @@
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import traceback
-from invenio.modules.workflows.errors import (WorkflowHalt, WorkflowError)
+from invenio.modules.workflows.errors import (WorkflowHalt,
+                                              WorkflowError,
+                                              )
 from invenio.modules.workflows.models import ObjectVersion
 from invenio.modules.workflows.engine import WorkflowStatus
 
@@ -44,14 +46,15 @@ def run_workflow(wfe, data, stop_on_halt=False,
                 wfe.restart('current', 'current')
                 # We processed the restarted workflow. We're done.
                 break
-        except WorkflowHalt as e:
+        except WorkflowHalt as workflowhalt_triggered:
             # Processing was halted. Lets save current object and continue.
 
             # Save current object progress
             current_obj = wfe.get_current_object()
             if current_obj:
-                if e.widget:
-                    current_obj.add_widget(e.widget, e.message)
+                if workflowhalt_triggered.widget:
+                    current_obj.add_widget(workflowhalt_triggered.widget,
+                                           workflowhalt_triggered.message)
                 current_obj.version = ObjectVersion.HALTED
                 current_obj.save(version=ObjectVersion.HALTED,
                                  task_counter=wfe.getCurrTaskId(),
@@ -66,26 +69,27 @@ def run_workflow(wfe, data, stop_on_halt=False,
             message = "Workflow '%s' halted at task %s with message: %s" % \
                       (wfe.name,
                        wfe.get_current_taskname() or "Unknown",
-                       e.message)
+                       workflowhalt_triggered.message)
             wfe.log.warning(message)
             if stop_on_halt:
                 break
-        except Exception as e:
+        except Exception as exception_triggered:
             # We print the stacktrace, save the object and continue
             # unless instructed otherwise.
-            msg = "Error: %r\n%s" % (e, traceback.format_exc())
+            msg = "Error: %r\n%s" % (exception_triggered, traceback.format_exc())
             wfe.log.error(msg)
 
             # Changing counter should be moved to wfe object
             # together with default exception handling
             wfe.increase_counter_error()
-            wfe._objects[wfe.getCurrObjId()].save(ObjectVersion.HALTED,
-                                                  wfe.getCurrTaskId(),
-                                                  id_workflow=wfe.uuid)
+            wfe._objects[wfe.getCurrObjId()].save(
+                ObjectVersion.HALTED,
+                wfe.getCurrTaskId(),
+                id_workflow=wfe.uuid)
             wfe.save(status=WorkflowStatus.ERROR)
             wfe.setPosition(wfe.getCurrObjId() + 1, [0, 0])
-            if isinstance(e, WorkflowError):
-                raise e
+            if isinstance(exception_triggered, WorkflowError):
+                raise exception_triggered
             else:
                 raise WorkflowError(message=msg,
                                     id_workflow=wfe.uuid,

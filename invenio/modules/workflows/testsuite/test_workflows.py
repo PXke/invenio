@@ -23,7 +23,6 @@ import random
 import time
 import logging
 
-from invenio.base.factory import with_app_context
 from invenio.testsuite import InvenioTestCase, make_test_suite, \
     run_test_suite
 
@@ -138,10 +137,10 @@ distances from it.
         eng = start('branchtest', data, module_name="unit_tests")
         idx, obj = list(eng.getObjects())[0]
 
-        assert obj.version == ObjectVersion.HALTED
-        assert eng.status == WorkflowStatus.HALTED
-        assert BibWorkflowObjectLog.get(
-            id_object=obj.id, log_type=logging.ERROR).count() == 0
+        self.assertEqual(obj.version, ObjectVersion.HALTED)
+        self.assertEqual(eng.status, WorkflowStatus.HALTED)
+        self.assertEqual(BibWorkflowObjectLog.get(
+            id_object=obj.id, log_type=logging.ERROR).count(), 0)
 
     def test_object_creation_complete(self):
         """
@@ -224,7 +223,7 @@ distances from it.
         test_object = BibWorkflowObject()
 
         random.seed(time.time())
-        tries = random.randint(5, 15)
+        tries = 15
 
         test_object.set_data(tries)
         test_object.save()
@@ -361,7 +360,7 @@ distances from it.
         )
 
         self._check_workflow_execution(objects,
-                                       initial_data, None)
+                                       initial_data)
 
         all_objects = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == workflow.uuid
@@ -595,7 +594,7 @@ test purpose, this object will log several things"""
         self.assertEqual(restarted_objects[0].get_data(),
                          restarted_objects[2].get_data())
 
-    def _check_workflow_execution(self, objects, initial_data, final_data):
+    def _check_workflow_execution(self, objects, initial_data):
         from invenio.modules.workflows.models import ObjectVersion
 
         # Let's check that we found anything. There should only be one object
@@ -611,10 +610,6 @@ test purpose, this object will log several things"""
         # Fetch final object which should exist
         final_object = objects[0].child_objects[0]
         self.assertTrue(final_object)
-
-        if final_data:
-            # Check that final data is correct
-            self.assertEqual(final_object.get_data(), final_data)
 
 
 class TestWorkflowTasks(InvenioTestCase):
@@ -671,7 +666,7 @@ class TestWorkflowTasks(InvenioTestCase):
         Tests that the logic tasks work correctly.
         """
         from invenio.modules.workflows.models import BibWorkflowObject
-        from invenio.modules.workflows.api import start, continue_oid, start_by_wid
+        from invenio.modules.workflows.api import start, start_by_wid
 
         test_object = BibWorkflowObject()
         test_object.set_data(0)

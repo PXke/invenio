@@ -76,7 +76,7 @@ from invenio.utils.plotextractor.converter import (untar,
 oaiharvest_templates = invenio.legacy.template.load('oaiharvest')
 
 REGEXP_REFS = re.compile("<record.*?>.*?<controlfield .*?>.*?</controlfield>(.*?)</record>", re.DOTALL)
-REGEXP_AUTHLIST = re.compile("<collaborationauthorlist.*?</collaborationauthorlist>", re.DOTALL)
+REGEXP_AUTHLIST = re.compile("<collaborationauthorlist>.*?</collaborationauthorlist>", re.DOTALL)
 
 
 def add_metadata_to_extra_data(obj, eng):
@@ -119,40 +119,44 @@ approve_record.__description__ = "This task assigns the approval widget to a rec
 
 def filtering_oai_pmh_identifier(obj, eng):
     """
-    :param obj: Bibworkflow Object to process
+    :param obj: BibworkflowObject being processed
     :param eng: BibWorkflowEngine processing the object
     """
     if "_function_reserved_filtering_oai_pmh_identifier" not in eng.extra_data:
         eng.extra_data["_function_reserved_filtering_oai_pmh_identifier"] = {}
     if "identifiers" not in eng.extra_data["_function_reserved_filtering_oai_pmh_identifier"]:
         eng.extra_data["_function_reserved_filtering_oai_pmh_identifier"]["identifiers"] = []
-    try:
-        if not isinstance(obj.data, list):
-            obj_data_list = [obj.data]
+    if not isinstance(obj.data, list):
+        obj_data_list = [obj.data]
+    else:
+        obj_data_list = obj.data
+    for record in obj_data_list:
+        substring = record[record.index("<identifier>") + 12:record.index("</identifier>")]
+        if substring in eng.extra_data["_function_reserved_filtering_oai_pmh_identifier"]["identifiers"]:
+            return False
         else:
-            obj_data_list = obj.data
-        for record in obj_data_list:
-            substring = record[record.index("<identifier>") + 12:record.index("</identifier>")]
-            if substring in eng.extra_data["_function_reserved_filtering_oai_pmh_identifier"]["identifiers"]:
-                return False
-            else:
-                eng.extra_data["_function_reserved_filtering_oai_pmh_identifier"]["identifiers"].append(substring)
-                return True
-    except TypeError:
-        eng.log.error("object data type invalid. Ignoring this step!")
-        return True
+            eng.extra_data["_function_reserved_filtering_oai_pmh_identifier"]["identifiers"].append(substring)
+            return True
 
 
 def inspire_filter_custom(fields, custom_accepted=(), custom_refused=(),
                           custom_widgeted=(), widget=None):
     """
+    This function allow you to filter for any type of key in a dictionnary stored
+    in object data.
 
-    :param fields:
-    :param custom_accepted:
-    :param custom_refused:
-    :param custom_widgeted:
-    :param widget:
-    :return:
+    :param fields: list representing field to go into for filtering ['a','b'] means that we
+    will first look into 'a' key in the dict then from 'a' key the 'b' key inside.
+    :type fields: list
+
+    :param custom_accepted: list of values that can be accepted
+    :type custom_accepted: list
+    :param custom_refused: list of value that must be refused
+    :type custom_refused: list
+    :param custom_widgeted: list of value that trigger a widget
+    :type custom_widgeted: list
+    :param widget: widget triggered if a value in custom_widgeted is found.
+    :return: function to be intepreted by the workflow engine
     """
 
     def _inspire_filter_custom(obj, eng):
@@ -398,7 +402,7 @@ def harvest_records(obj, eng):
     Run the harvesting task.  The row argument is the oaiharvest task
     queue row, containing if, arguments, etc.
     Return 1 in case of success and 0 in case of failure.
-    :param obj: Bibworkflow Object to process
+    :param obj: BibworkflowObject being
     :param eng: BibWorkflowEngine processing the object
     """
 
@@ -523,15 +527,17 @@ def set_obj_extra_data_key(key, value):
     """
 
     def _set_obj_extra_data_key(obj, eng):
+        import six
+
         my_value = value
         my_key = key
-        if callable(my_value):
-            while callable(my_value):
+        if six.callable(my_value):
+            while six.callable(my_value):
                 my_value = my_value(obj, eng)
 
-        if callable(my_key):
-           while callable(my_key):
-               my_key = my_key(obj, eng)
+        if six.callable(my_key):
+            while six.callable(my_key):
+                my_key = my_key(obj, eng)
 
         obj.extra_data[str(my_key)] = my_value
 
@@ -986,6 +992,7 @@ def author_list(obj, eng):
             obj.data['number_of_authors'] = new_dict_representation["number_of_authors"]
             obj.add_task_result("authors", new_dict_representation["authors"])
             obj.add_task_result("number_of_authors", new_dict_representation["number_of_authors"])
+
 
 author_list.__id__ = "u"
 
