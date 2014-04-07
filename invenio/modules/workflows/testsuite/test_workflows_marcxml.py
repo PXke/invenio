@@ -56,6 +56,37 @@ class WorkflowMarcXML(InvenioTestCase):
         engine.extra_data = engine.get_extra_data()
         self.assertEqual(filtering_oai_pmh_identifier(my_test_obj, engine), False)
 
+    def test_bibfield_conversion(self):
+        from invenio.modules.workflows.tasks.marcxml_tasks import convert_record_to_bibfield
+        from invenio.modules.workflows.api import start
+        from invenio.modules.workflows.models import BibWorkflowObject
+        expected_result = {}
+        my_test_obj = BibWorkflowObject()
+        my_test_obj.set_data([2])
+        my_test_obj.save()
+        engine = start("test_workflow_dummy", my_test_obj)
+        my_test_obj.data = my_test_obj.get_data()
+        engine.extra_data = engine.get_extra_data()
+        my_test_obj.extra_data = my_test_obj.get_extra_data()
+        convert_record_to_bibfield(my_test_obj, engine)
+        self.assertEqual(expected_result, my_test_obj.data)
+
+    def test_init_harvesting(self):
+        from invenio.modules.workflows.tasks.marcxml_tasks import init_harvesting
+        from invenio.modules.workflows.api import start
+        from invenio.modules.workflows.models import BibWorkflowObject
+        my_test_obj = BibWorkflowObject()
+        my_test_obj.set_data([2])
+        my_test_obj.save()
+        engine = start("test_workflow_dummy", my_test_obj)
+        my_test_obj.data = my_test_obj.get_data()
+        my_test_obj.extra_data = my_test_obj.get_extra_data()
+        engine.set_extra_data_params(options={'test': True})
+        engine.extra_data = engine.get_extra_data()
+        init_harvesting(my_test_obj, engine)
+        self.assertEqual(engine.get_extra_data()["options"]["test"], True)
+
+
 
 TEST_SUITE = make_test_suite(WorkflowMarcXML)
 
